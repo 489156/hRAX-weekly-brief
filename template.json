@@ -1,0 +1,67 @@
+{
+  "id": "newsletter-publication",
+  "version": 3,
+  "base_revision": "base-2026-11-09",
+  "category": "publication",
+  "kind": "site",
+  "visibility_default": "public",
+  "thumbnail": "docs/thumb.jpg",
+  "verified": "docs/check-report.json",
+  "runtime": {
+    "worker": true,
+    "d1": true,
+    "secrets": [
+      "ADMIN_TOKEN"
+    ],
+    "cron": false,
+    "gateway_calls_at_runtime": false
+  },
+  "baze_at_build": [
+    "gen image (머리 사진 1장·호 사진 4장·편집장 사진 1장, docs/ASSETS.md)"
+  ],
+  "privacy": {
+    "noindex": false,
+    "retention": "구독 정보는 구독 취소 시 삭제"
+  },
+  "title": "뉴스레터 발행 페이지",
+  "subtitle": "뉴스레터 지난 호를 모아 보여 주고 구독을 받는 페이지",
+  "capabilities": [
+    "지난 호 모음",
+    "구독 받기",
+    "읽기 화면"
+  ],
+  "audience": [
+    "에디터",
+    "뉴스레터 운영자"
+  ],
+  "variants": [
+    "팀 레터",
+    "주제별 큐레이션"
+  ],
+  "first_prompt": "내 뉴스레터 지난 호를 주제별로 모아 읽을 수 있고, 읽다가 바로 구독을 신청할 수 있는 발행 페이지를 만들어 줘. 구독 신청한 사람 명단은 내가 따로 볼 수 있으면 좋겠어.",
+  "asks_user": [
+    "발행물 이름(국문·영문)·무엇을 보내는 레터인지·발행 주기",
+    "편집실 이름, 편집장 이름·소개, 연락 이메일",
+    "지난 호 글(제목·발행일·주제·본문)과 호마다 표지 사진이 있는지",
+    "구독하면 받는 것 몇 줄과 다음 호 예정일"
+  ],
+  "owner_pages": [
+    "/admin#k=<ADMIN_TOKEN>"
+  ],
+  "reference": "Lovable inkwell-newsletter-landing-page-for-creators 화면을 옮겨 옴(Wave 7, REBUILD-BRIEF-2026-11-09.md). 기능·API·스키마는 v2 그대로. 사진 6장은 baze gen image 견본.",
+  "grammar": "split-stage",
+  "ground": "light",
+  "signature_move": "페이지 전체가 둥근 검은 틀 하나이고, 모든 칸이 2px 검은 이음매로 맞붙는다(칸 사이 틈으로 틀의 검정이 비친다). 호 카드는 자리마다 라일락·무지·민트 그라데이션이 돌고, 읽기 화면은 상단 진행 띠가 복숭아→분홍으로 차오르며 글의 60% 지점에서 검은 구독 칸이 본문을 끊고 들어온다.",
+  "type_pair": [
+    "Pretendard",
+    "Montserrat"
+  ],
+  "design_style": "옅은 회색(#f3f3f5) 바탕 위 검은 틀, 칸은 #f8f7f6. 한글 제목은 Pretendard 900 을 바짝 붙여 크게, 라틴 제호·호 번호(No.006)·큰 숫자는 Montserrat 900. 주 버튼은 복숭아→분홍 그라데이션 알약, 보조는 검은 알약. 칸마다 파스텔 그라데이션(라일락·민트)이 번갈아 깔리고, 머리 칸 오른쪽에 최신 호로 가는 사진 칸이 선다.",
+  "interaction_label": "첫 화면 칸들이 흐림을 걷으며 차례로 떠오름, 사진 칸 hover 확대, 카드 「읽기 →」 화살표 벌어짐, 주제 칩 거르기(「n개의 이야기」), 홀수 칸을 채우는 다음 호 카드, 읽기 화면 고정 진행 띠와 백분율·목차·링크 복사, 60% 지점 구독, 오류 시 흔들림, 관리자 주제별 칸·이메일 찾기·삭제·CSV.",
+  "fingerprint": {
+    "nav": "plain-wordmark-latin-small-caps-left-text-link-and-black-pill-subscribe-right-no-sticky",
+    "hero": "rounded-black-frame-two-column-bento-huge-korean-900-headline-cell-left-reader-proof-cell-and-latest-issue-photo-cell-stacked-right-then-full-width-pill-email-band",
+    "acts": "bento-hero > email-band > three-pastel-gradient-issue-cards > gradient-check-benefits > grayscale-editor-cell > black-subscribe-cell > colophon-cell",
+    "close": "black-cell-next-issue-date-headline-with-dark-pill-form-then-colophon-cell-inside-the-same-frame"
+  }
+}
