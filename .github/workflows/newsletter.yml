@@ -1,0 +1,32 @@
+name: 사이 주간 수집과 게시
+on:
+  schedule:
+    # UTC 화요일 01:00 = 한국시간 화요일 10:00. 실행 지연이 있을 수 있다.
+    - cron: '0 1 * * 2'
+  workflow_dispatch:
+    inputs:
+      verify_only:
+        description: '연결만 확인하고 새 글은 게시하지 않음'
+        type: boolean
+        default: true
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: sai-weekly-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    # 자동 게시가 꺼져 있어도 읽기 전용 연결 검사는 허용한다.
+    if: vars.PUBLICATION_ENABLED == 'true' || (github.event_name == 'workflow_dispatch' && inputs.verify_only)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: 원문 확인과 발행
+        env:
+          VERIFY_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.verify_only && 'true' || 'false' }}
+          PUBLICATION_ENABLED: ${{ vars.PUBLICATION_ENABLED }}
+        run: node scripts/run-editorial.mjs

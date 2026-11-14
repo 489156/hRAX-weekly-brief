@@ -6,10 +6,13 @@
     "dev": "node scripts/dev.mjs",
     "build": "tsc -b && vite build",
     "db:init": "node scripts/db-init.mjs",
-    "check": "node ../_tools/check.mjs ."
+    "check": "node --experimental-strip-types --test test/*.test.mjs && node test/flows.mjs",
+    "check:production": "node test/production.mjs"
   },
   "dependencies": {
+    "fast-xml-parser": "^5.12.1",
     "hono": "^4.10.2",
+    "jose": "^6.2.17",
     "lucide-react": "^0.545.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

@@ -1,1 +1,1 @@
-{ "secrets": ["ADMIN_TOKEN"] }
+{ "data": { "tables": ["publication", "editorial_run", "subscriber", "editorial_candidate", "source_result"] }, "secrets": ["ADMIN_TOKEN", "BAZE_API_KEY"] }

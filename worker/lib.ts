@@ -1,7 +1,7 @@
 // 템플릿 공통 Worker 도구. 템플릿마다 그대로 복사해 쓴다(템플릿은 서로 import 하지 않는다).
 import type { Context, MiddlewareHandler } from "hono";
 
-export type Bindings = { DB: D1Database; ASSETS: Fetcher; ADMIN_TOKEN?: string };
+export type Bindings = Env & { BAZE_API_BASE?: string };
 
 /** 문자열만 받고, 앞뒤 공백을 자르고, 길이를 제한한다. 문자열이 아니면 "". */
 export const clean = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
@@ -41,7 +41,16 @@ export function bearerToken(header: string | undefined) {
  */
 export const ownerOnly: MiddlewareHandler<{ Bindings: Bindings }> = async (c, next) => {
   const got = bearerToken(c.req.header("authorization"));
-  if (!c.env.ADMIN_TOKEN || !sameToken(got, c.env.ADMIN_TOKEN)) return c.json({ error: "not found" }, 404);
+  if (!c.env.ADMIN_TOKEN || !got) return c.json({ error: "not found" }, 404);
+  const encoder = new TextEncoder();
+  const [provided, expected] = await Promise.all([
+    crypto.subtle.digest("SHA-256", encoder.encode(got)),
+    crypto.subtle.digest("SHA-256", encoder.encode(c.env.ADMIN_TOKEN)),
+  ]);
+  if (!crypto.subtle.timingSafeEqual(provided, expected)) {
+    if (await rateLimited(c, "admin-failed", 30, 900)) return bad(c, "비밀번호를 너무 자주 틀렸어요. 잠시 뒤 다시 시도해 주세요.", 429);
+    return c.json({ error: "not found" }, 404);
+  }
   await next();
 };
 

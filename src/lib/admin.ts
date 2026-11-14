@@ -4,6 +4,11 @@ import { api } from "./api";
 
 const KEY = "owner.token";
 
+export function setOwnerToken(token: string) {
+  if (token) sessionStorage.setItem(KEY, token);
+  else sessionStorage.removeItem(KEY);
+}
+
 export function ownerToken(): string {
   const m = location.hash.match(/k=([^&]+)/);
   if (m) {

@@ -1,5 +1,7 @@
 import { Link, type RouteObject } from "react-router";
+import { lazy, Suspense } from "react";
 import App, { Home, Archive, Issue, SubscribePage, Unsubscribe, Admin } from "./App";
+const Sources = lazy(() => import("./pages/Sources").then(m => ({ default: m.Sources })));
 
 // Every page of the app is listed here, and only here. main.tsx builds the router from this
 // array and exposes it as window.__baze.routes so the BAZE preview can list the pages.
@@ -10,6 +12,7 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <Home/> },
       { path: "archive", element: <Archive/> },
+      { path: "sources", element: <Suspense fallback={<div className="frame"><div className="cell empty-cell" role="status">출처를 불러오는 중…</div></div>}><Sources/></Suspense> },
       { path: "issues/:slug", element: <Issue/> },
       { path: "subscribe", element: <SubscribePage/> },
       { path: "unsubscribe", element: <Unsubscribe/> },

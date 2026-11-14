@@ -4,7 +4,16 @@
   "name": "newsletter-publication",
   "main": "worker/index.ts",
   "compatibility_date": "2025-10-01",
-  "assets": { "directory": "dist", "binding": "ASSETS", "not_found_handling": "single-page-application", "run_worker_first": ["/api/*"] },
+  "assets": { "directory": "dist", "binding": "ASSETS", "not_found_handling": "single-page-application", "run_worker_first": ["/api/*", "/issues/*"] },
   "d1_databases": [{ "binding": "DB", "database_name": "app", "database_id": "local" }],
-  "vars": {}
+  // 미리보기에서 지정한 환경값만 읽는다. 게시 때 쓰는 비밀 이름은 baze.json의 두 개뿐이다.
+  // BAZE_API_BASE의 실제 주소는 게시 서비스가 넣으며 여기에 값을 적지 않는다.
+  "secrets": { "required": ["ADMIN_TOKEN", "BAZE_API_KEY", "BAZE_API_BASE"] },
+  "vars": {
+    "PUBLIC_ORIGIN": "https://sai-newsletter.baze.cloud",
+    "AUTOMATION_REPOSITORY": "489156/hRAX-weekly-brief",
+    "AUTOMATION_REPOSITORY_ID": "1457505837",
+    "AUTOMATION_OWNER_ID": "41557907",
+    "AUTOMATION_BRANCH": "main"
+  }
 }

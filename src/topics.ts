@@ -2,4 +2,5 @@
 // Worker 는 이 파일만 import 한다 — content.ts 는 모듈을 읽을 때 오늘 날짜로 발행일을 계산하는데,
 // Cloudflare Worker 안에서는 그 시점의 시계가 0(1970년)이라 날짜가 어긋난다.
 // 첫 칸 「전체」는 거르기 해제이자 「주제 상관없이 다 받기」다.
-export const topics = ["전체", "팀과 문화", "도구와 일", "읽고 생각하기"];
+export const topics = ["전체", "노동법", "HR", "인사", "노무", "AI", "AX", "GitHub Trending"];
+// 기존 구독자의 관심 주제 값은 그대로 보존한다. 새 신청에는 위 주제만 사용한다.
