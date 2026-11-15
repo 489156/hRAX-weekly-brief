@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { runWeekly, readStep, publicationOrigin } from "../scripts/run-weekly.mjs";
+import { runWeekly, readStep, publicationOrigin, WeeklyRequestError } from "../scripts/run-weekly.mjs";
 
 const env = { GITHUB_ACTIONS: "true", GITHUB_REPOSITORY: "489156/hRAX-weekly-brief", GITHUB_REF: "refs/heads/main", REPOSITORY_VISIBILITY: "public", GITHUB_EVENT_NAME: "workflow_dispatch", VERIFY_ONLY: "true", PUBLICATION_ENABLED: "false", ACTIONS_ID_TOKEN_REQUEST_URL: "https://example.org/isolated-oidc", ACTIONS_ID_TOKEN_REQUEST_TOKEN: "isolated-not-a-real-token" };
 const sse = result => new Response(`event: ping\ndata: {}\n\nevent: done\ndata: ${JSON.stringify(result)}\n\n`, { headers: { "content-type": "text/event-stream" } });
@@ -44,4 +44,15 @@ test("크레딧 중단·불완전 응답을 자동으로 반복 요청하지 않
   await assert.rejects(runWeekly({ env: { ...env, VERIFY_ONLY: "false", PUBLICATION_ENABLED: "true" }, ...m }));
   assert.equal(m.calls.filter(c => c.path.endsWith("/step")).length, 1);
   await assert.rejects(readStep(new Response("event: ping\ndata: {}\n\n", { headers: { "content-type": "text/event-stream" } })));
+});
+test("연결 진단은 허용한 단계·상태만 남기고 응답 본문과 비밀 주소를 버림", async () => {
+  const m = mock();
+  for (const stage of ["health", "identity", "automation"]) {
+    await assert.rejects(runWeekly({ env, ...m, request: (url, init) => {
+      const path = new URL(url).pathname;
+      if (path === ({ health: "/api/health", identity: "/isolated-oidc", automation: "/api/automation/status" })[stage]) return Promise.resolve(new Response("private-response-do-not-log", { status: 403 }));
+      return m.request(url, init);
+    } }), error => error instanceof WeeklyRequestError && error.stage === stage && error.status === 403 && !String(error).includes("private-response"));
+  }
+  await assert.rejects(runWeekly({ env, ...m, request: async () => { throw new Error("private-token-in-network-address"); } }), error => error instanceof WeeklyRequestError && error.stage === "health" && error.status === 0 && !String(error).includes("private-token"));
 });
