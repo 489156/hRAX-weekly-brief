@@ -2,7 +2,7 @@
 import { appendFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
-export const publicationOrigin = "https://sai-newsletter.baze.cloud";
+export const publicationOrigin = "https://hrax-newsletter.baze.cloud";
 const contract = "weekly-v1";
 const states = new Set(["running", "completed", "partial", "paused", "skipped", "interrupted", "credit_stopped", "failed"]);
 const requestStages = new Set(["health", "identity", "automation"]);
