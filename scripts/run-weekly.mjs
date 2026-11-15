@@ -5,13 +5,17 @@ import { pathToFileURL } from "node:url";
 export const publicationOrigin = "https://sai-newsletter.baze.cloud";
 const contract = "weekly-v1";
 const states = new Set(["running", "completed", "partial", "paused", "skipped", "interrupted", "credit_stopped", "failed"]);
+const requestStages = new Set(["health", "identity", "automation"]);
+export class WeeklyRequestError extends Error {
+  constructor(stage, status = 0) { super("주간 연결 확인을 마치지 못했어요."); this.stage = requestStages.has(stage) ? stage : "automation"; this.status = Number.isInteger(status) && status >= 0 && status <= 599 ? status : 0; }
+}
 
-async function json(response, limit = 32000) {
-  if (!response.ok || !response.body) throw new Error("요청을 완료하지 못했어요. 사이트의 실행 이력을 확인해 주세요.");
+async function json(response, stage, limit = 32000) {
+  if (!response.ok || !response.body) throw new WeeklyRequestError(stage, response.status);
   const reader = response.body.getReader(), decoder = new TextDecoder(); let text = "";
   try {
     while (true) { const chunk = await reader.read(); if (chunk.done) break; text += decoder.decode(chunk.value, { stream: true }); if (text.length > limit) throw new Error("응답 확인 한도를 넘었어요."); }
-    return JSON.parse(text + decoder.decode());
+    try { return JSON.parse(text + decoder.decode()); } catch { throw new WeeklyRequestError(stage, response.status); }
   } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
 }
 export async function readStep(response) {
@@ -39,7 +43,10 @@ export async function readStep(response) {
 export async function runWeekly({ env = process.env, request = fetch, log = console.log, now = Date.now, summary = async () => {} } = {}) {
   if (env.GITHUB_ACTIONS !== "true" || env.GITHUB_REPOSITORY !== "489156/hRAX-weekly-brief" || env.GITHUB_REF !== "refs/heads/main" || env.REPOSITORY_VISIBILITY !== "public" || !["schedule", "workflow_dispatch"].includes(env.GITHUB_EVENT_NAME)) throw new Error("지정한 공개 저장소의 기본 브랜치에서만 실행할 수 있어요.");
   const verifyOnly = env.VERIFY_ONLY !== "false" || env.PUBLICATION_ENABLED !== "true";
-  const health = await json(await request(`${publicationOrigin}/api/health`, { redirect: "error", signal: AbortSignal.timeout(20000) }));
+  async function safeRequest(stage, url, init) {
+    try { return await request(url, init); } catch { throw new WeeklyRequestError(stage); }
+  }
+  const health = await json(await safeRequest("health", `${publicationOrigin}/api/health`, { redirect: "error", signal: AbortSignal.timeout(20000) }), "health");
   if (health.editorialVersion !== contract) {
     const message = "공개 사이트의 새 주간 발행 반영 전이에요. 연결 검증을 보류했으며 수집·AI·게시를 요청하지 않았어요.";
     await summary(message); log(message);
@@ -51,17 +58,19 @@ export async function runWeekly({ env = process.env, request = fetch, log = cons
     if (!env.ACTIONS_ID_TOKEN_REQUEST_URL || !env.ACTIONS_ID_TOKEN_REQUEST_TOKEN) throw new Error("GitHub 실행 증명을 요청할 수 없어요.");
     const url = new URL(env.ACTIONS_ID_TOKEN_REQUEST_URL); if (url.protocol !== "https:") throw new Error("실행 증명 주소가 올바르지 않아요.");
     url.searchParams.set("audience", publicationOrigin);
-    const identity = await json(await request(url, { headers: { authorization: `Bearer ${env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}` }, redirect: "error", signal: AbortSignal.timeout(20000) }));
+    const identity = await json(await safeRequest("identity", url, { headers: { authorization: `Bearer ${env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}` }, redirect: "error", signal: AbortSignal.timeout(20000) }), "identity");
     if (typeof identity.value !== "string" || !identity.value || identity.value.length > 12000) throw new Error("실행 증명을 확인하지 못했어요.");
-    return request(`${publicationOrigin}/api/automation${path}`, { method, headers: { authorization: `Bearer ${identity.value}`, accept: path.endsWith("/step") ? "text/event-stream" : "application/json" }, redirect: "error", signal: AbortSignal.timeout(path.endsWith("/step") ? 19 * 60000 : 30000) });
+    const response = await safeRequest("automation", `${publicationOrigin}/api/automation${path}`, { method, headers: { authorization: `Bearer ${identity.value}`, accept: path.endsWith("/step") ? "text/event-stream" : "application/json" }, redirect: "error", signal: AbortSignal.timeout(path.endsWith("/step") ? 19 * 60000 : 30000) });
+    if (!response.ok) { await response.body?.cancel(); throw new WeeklyRequestError("automation", response.status); }
+    return response;
   }
-  const status = await json(await call("/status"));
+  const status = await json(await call("/status"), "automation");
   if (status.contract !== contract || typeof status.paused !== "boolean") throw new Error("주간 발행 연결 규칙을 확인하지 못했어요.");
   if (verifyOnly) {
     const message = `읽기 전용 연결을 확인했어요. 예약 요청은 ${status.paused ? "일시중지" : "허용"} 상태이며 수집·AI·게시를 요청하지 않았어요.`;
     log(message); await summary(message); return { state: "verified", verified: true, paused: status.paused };
   }
-  const execution = await json(await call("/start", "POST"));
+  const execution = await json(await call("/start", "POST"), "automation");
   if (!/^[a-f0-9]{32}$/.test(execution.id) || !states.has(execution.state) || typeof execution.more !== "boolean") throw new Error("시작 응답을 확인하지 못했어요.");
   if (!execution.more) { const message = `이번 요청 상태: ${execution.state}. 새 AI 단계를 시작하지 않았어요.`; log(message); await summary(message); return { state: execution.state }; }
   const started = now();
@@ -78,5 +87,5 @@ export async function runWeekly({ env = process.env, request = fetch, log = cons
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   runWeekly({ summary: text => process.env.GITHUB_STEP_SUMMARY ? appendFile(process.env.GITHUB_STEP_SUMMARY, `## 랙스 주간 발행\n\n${text}\n`) : Promise.resolve() })
-    .catch(() => { console.error("랙스 주간 실행을 끝내지 못했어요. 공개 사이트 반영 상태와 운영 관리의 실제 이력을 확인해 주세요. 비밀·원문·원고는 출력하지 않아요."); process.exitCode = 1; });
+    .catch(error => { if (error instanceof WeeklyRequestError) console.error(`연결 확인 단계: ${error.stage} · 응답: ${error.status || "연결 실패"}`); console.error("랙스 주간 실행을 끝내지 못했어요. 공개 사이트 반영 상태와 운영 관리의 실제 이력을 확인해 주세요. 비밀·원문·원고는 출력하지 않아요."); process.exitCode = 1; });
 }
