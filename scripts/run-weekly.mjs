@@ -60,14 +60,16 @@ export async function runWeekly({ env = process.env, request = fetch, log = cons
     url.searchParams.set("audience", publicationOrigin);
     const identity = await json(await safeRequest("identity", url, { headers: { authorization: `Bearer ${env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}` }, redirect: "error", signal: AbortSignal.timeout(20000) }), "identity");
     if (typeof identity.value !== "string" || !identity.value || identity.value.length > 12000) throw new Error("실행 증명을 확인하지 못했어요.");
-    const response = await safeRequest("automation", `${publicationOrigin}/api/automation${path}`, { method, headers: { authorization: `Bearer ${identity.value}`, accept: path.endsWith("/step") ? "text/event-stream" : "application/json" }, redirect: "error", signal: AbortSignal.timeout(path.endsWith("/step") ? 19 * 60000 : 30000) });
+    const response = await safeRequest("automation", `${publicationOrigin}/api/automation${path}`, { method, headers: { authorization: `Bearer ${identity.value}`, accept: path.endsWith("/step") ? "text/event-stream" : "application/json", ...(method === "POST" ? { "content-type": "application/json" } : {}) }, ...(method === "POST" ? { body: "{}" } : {}), redirect: "error", signal: AbortSignal.timeout(path.endsWith("/step") ? 19 * 60000 : 30000) });
     if (!response.ok) { await response.body?.cancel(); throw new WeeklyRequestError("automation", response.status); }
     return response;
   }
   const status = await json(await call("/status"), "automation");
   if (status.contract !== contract || typeof status.paused !== "boolean") throw new Error("주간 발행 연결 규칙을 확인하지 못했어요.");
   if (verifyOnly) {
-    const message = `읽기 전용 연결을 확인했어요. 예약 요청은 ${status.paused ? "일시중지" : "허용"} 상태이며 수집·AI·게시를 요청하지 않았어요.`;
+    const probe = await json(await call("/verify", "POST"), "automation");
+    if (probe.contract !== contract || probe.postAccepted !== true || probe.paused !== status.paused) throw new Error("예약 실행 요청 형식을 확인하지 못했어요. 저장·수집·AI·게시는 요청하지 않았어요.");
+    const message = `연결과 실행 요청 형식을 확인했어요. 예약 요청은 ${status.paused ? "일시중지" : "허용"} 상태이며 실행 저장·수집·AI·게시를 요청하지 않았어요.`;
     log(message); await summary(message); return { state: "verified", verified: true, paused: status.paused };
   }
   const execution = await json(await call("/start", "POST"), "automation");
